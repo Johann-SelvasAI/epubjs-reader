@@ -40,7 +40,6 @@ EPUBJS.Reader = function (bookPath, _options) {
         bookKey: undefined,
         styles: undefined,
         sidebarReflow: false,
-        generatePagination: false,
         history: true
     });
 
@@ -77,9 +76,9 @@ EPUBJS.Reader = function (bookPath, _options) {
         this.settings.annotations = [];
     }
 
-    if (this.settings.generatePagination) {
-        book.generatePagination($viewer.width(), $viewer.height());
-    }
+    this.book.ready.then(this.generateLoc.bind(this)).catch(() => {
+        console.log("error loading book");
+    });
 
     this.rendition = rendition = book.renderTo("viewer", {
         ignoreClass: "annotator-hl",
@@ -128,15 +127,12 @@ EPUBJS.Reader = function (bookPath, _options) {
                 reader.SidebarController = EPUBJS.reader.SidebarController.call(reader, book);
                 reader.BookmarksController = EPUBJS.reader.BookmarksController.call(reader, book);
                 reader.NotesController = EPUBJS.reader.NotesController.call(reader, book);
-
                 window.addEventListener("hashchange", this.hashChanged.bind(this), false);
-
                 document.addEventListener("keydown", this.adjustFontSize.bind(this), false);
-
                 this.rendition.on("keydown", this.adjustFontSize.bind(this));
                 this.rendition.on("keydown", reader.ReaderController.arrowKeys.bind(this));
-
                 this.rendition.on("selected", this.selectedRange.bind(this));
+                this.rendition.on("relocated", this.onRenditionRelocated.bind(this));
             }.bind(this)
         )
         .then(
@@ -234,8 +230,27 @@ EPUBJS.Reader.prototype.searchBookmarked = function(cfi) {
 };
 */
 
-EPUBJS.Reader.prototype.clearBookmarks = function () {
-    this.settings.bookmarks = [];
+EPUBJS.Reader.prototype.generateLoc = function () {
+    let chars = 3000;
+
+    return this.book.locations
+        .generate(chars)
+        .then(() => {
+            console.log("locations generated", this.book.locations);
+        })
+        .catch(err => console.error("error generating locations", err));
+};
+
+EPUBJS.Reader.prototype.onRenditionRelocated = function (event) {
+    if (event.start.location > 0) {
+        let loc = `${event.start.location}/${this.book.locations.length()}`;
+        let percentage =
+            event.start.percentage > 0 && event.start.percentage < 1
+                ? `${Math.round(event.start.percentage * 1000) / 10}%`
+                : "";
+
+        console.log(`loc: ${loc}, percentage: ${percentage}`);
+    }
 };
 
 //-- Notes
