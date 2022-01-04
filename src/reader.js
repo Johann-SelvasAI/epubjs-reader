@@ -212,9 +212,16 @@ EPUBJS.Reader.prototype.removeBookmark = function (cfi) {
 };
 
 EPUBJS.Reader.prototype.isBookmarked = function (cfi) {
-    var bookmarks = this.settings.bookmarks;
+    let ret = -1;
 
-    return bookmarks.indexOf(cfi);
+    this.settings.bookmarks.forEach(function (cfi, index) {
+        if (reader.containCfi(cfi)) {
+            ret = index;
+            return;
+        }
+    });
+
+    return ret;
 };
 
 /*
@@ -229,6 +236,39 @@ EPUBJS.Reader.prototype.searchBookmarked = function(cfi) {
 	return -1;
 };
 */
+
+EPUBJS.Reader.prototype.containCfi = function (cfi) {
+    let start = this.cfiToPosition(this.rendition.location.start.cfi);
+    let end = this.cfiToPosition(this.rendition.location.end.cfi);
+    let pos = this.cfiToPosition(cfi);
+
+    if (start !== null && end !== null && pos !== null) {
+        if (pos.doc >= start.doc && pos.doc <= end.doc && pos.para >= start.para && pos.para <= end.para) {
+            return true;
+        }
+    }
+
+    return false;
+};
+
+EPUBJS.Reader.prototype.cfiToPosition = function (cfi) {
+    try {
+        let arr = cfi.split("!/");
+        let reg = /(epubcfi\(\/\d\/)|(\[\w+\.\w+\])/g;
+        let docPos = parseInt(arr[0].replaceAll(reg, ""));
+        let suffixArr = arr[1].split("/");
+
+        if (suffixArr.length > 2) {
+            let paraPos = parseInt(suffixArr[1]);
+
+            return {doc: docPos, para: paraPos};
+        }
+    } catch (e) {
+        console.error(e);
+    }
+
+    return null;
+};
 
 EPUBJS.Reader.prototype.generateLoc = function () {
     let chars = 3000;
